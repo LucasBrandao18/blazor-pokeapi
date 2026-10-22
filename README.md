@@ -1,6 +1,5 @@
 # BlazorPokeApi
 
-Aplicação em **C# e Blazor WebAssembly (.NET 10)** desenvolvida a partir da lista `23.lista_net_ex.pdf`, do professor Daniel Henrique Matos de Paiva.
 
 ## O que foi solicitado
 
@@ -137,23 +136,3 @@ Execute na raiz:
 dotnet build
 dotnet test "tests\BlazorPokeApi.Tests\BlazorPokeApi.Tests.csproj"
 ```
-
-Foram implementados **16 testes automatizados com bUnit e xUnit**, cobrindo normalização do nome, conversão das medidas, seleção do campo correto da imagem, entradas inválidas, HTTP 404/503, falha de rede, tempo limite, JSON inválido, resultado nulo, imagem ausente, erro de carregamento da imagem, nova tentativa e bloqueio de consultas duplicadas.
-
-Os testes usam respostas HTTP simuladas para não depender da disponibilidade da API. A pasta `tests` é excluída do aplicativo principal pelo `.csproj`, não sendo distribuída ao navegador.
-
-A consulta real também foi conferida no navegador. Nenhum Pokémon de teste está fixado na aplicação; os exemplos das respostas simuladas existem somente no projeto de testes.
-
-## Entrega manual e licença
-
-O `.gitignore` usa o modelo do Visual Studio/.NET e ignora `bin/`, `obj/` e outros arquivos gerados. Essas pastas são recriadas durante a compilação e não precisam ser enviadas ao repositório.
-
-O arquivo `LICENSE` contém a licença MIT solicitada para o código deste projeto. Os dados, imagens e marcas de Pokémon pertencem aos respectivos titulares; a licença do código não transfere direitos sobre esses conteúdos.
-
-Nenhum repositório foi criado e nada foi publicado no GitHub ou no Google Classroom.
-
-## Referências
-
-- Material fornecido: `23.lista_net_ex.pdf`.
-- [Documentação oficial da PokéAPI](https://pokeapi.co/docs/v2#pokemon).
-- [Endpoint de exemplo: Ditto](https://pokeapi.co/api/v2/pokemon/ditto).
