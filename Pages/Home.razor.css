@@ -1,0 +1,8 @@
+.consulta { max-width: 48rem; }
+.resultado { max-width: 48rem; overflow-wrap: anywhere; }
+.imagem-pokemon {
+    width: 220px;
+    height: 220px;
+    max-width: 100%;
+    object-fit: contain;
+}

@@ -1,0 +1,152 @@
+﻿@page "/"
+
+@using System.Globalization
+@using System.Net
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@using BlazorPokeApi.Models
+@inject HttpClient Http
+@implements IDisposable
+
+<PageTitle>Buscar Pokémon</PageTitle>
+<h1>Buscar Pokémon</h1>
+<p>Digite o nome de um Pokémon para consultar seus dados na PokéAPI.</p>
+
+<form class="consulta" @onsubmit="BuscarPokemon" @onsubmit:preventDefault novalidate>
+    <label for="nomePokemon" class="form-label">Nome do Pokémon</label>
+    <input id="nomePokemon" class="form-control" type="text" placeholder="Ex.: pikachu"
+           autocomplete="off" spellcheck="false" aria-describedby="ajudaNome"
+           @bind="nomeDigitado" @bind:event="oninput" disabled="@carregando" />
+    <p id="ajudaNome" class="form-text">Use o nome da API, como ditto, pikachu ou mr-mime.</p>
+    <button type="submit" class="btn btn-primary" disabled="@carregando">
+        @(carregando ? "Buscando..." : "Buscar Pokémon")
+    </button>
+</form>
+
+@if (carregando)
+{
+    <p class="mt-3" role="status">Consultando a PokéAPI. Aguarde...</p>
+}
+@if (!string.IsNullOrEmpty(mensagemErro))
+{
+    <div class="alert alert-danger mt-3 consulta" role="alert">@mensagemErro</div>
+}
+@if (pokemon is not null)
+{
+    <section class="card mt-4 resultado" aria-labelledby="tituloResultado" aria-live="polite">
+        <div class="card-body">
+            <h2 id="tituloResultado" class="h4">Detalhes do Pokémon</h2>
+            @if (!string.IsNullOrEmpty(urlImagem) && !falhaImagem)
+            {
+                <img @key="pokemon.Id" class="imagem-pokemon" src="@urlImagem"
+                     alt="@($"Arte oficial de {pokemon.Nome}")" width="220" height="220"
+                     @onerror="() => falhaImagem = true" />
+            }
+            else
+            {
+                <p class="alert alert-warning" role="status">
+                    @(falhaImagem
+                        ? "Não foi possível carregar a imagem oficial. Tente buscar novamente."
+                        : "A API não forneceu uma imagem oficial para este Pokémon.")
+                </p>
+            }
+            <p><strong>ID:</strong> @pokemon.Id</p>
+            <p><strong>Nome:</strong> @pokemon.Nome</p>
+            <p><strong>Altura:</strong> @Medida(pokemon.Altura, "m")</p>
+            <p class="mb-0"><strong>Peso:</strong> @Medida(pokemon.Peso, "kg")</p>
+        </div>
+    </section>
+}
+
+@code {
+    private string nomeDigitado = string.Empty;
+    private string mensagemErro = string.Empty;
+    private string? urlImagem;
+    private Pokemon? pokemon;
+    private bool carregando;
+    private bool falhaImagem;
+    private readonly CancellationTokenSource cancelamento = new();
+    private static readonly NumberFormatInfo FormatoMedidas = new() { NumberDecimalSeparator = "," };
+
+    private async Task BuscarPokemon()
+    {
+        if (carregando)
+        {
+            return;
+        }
+
+        pokemon = null;
+        urlImagem = null;
+        falhaImagem = false;
+        mensagemErro = string.Empty;
+        var nome = nomeDigitado.Trim().ToLowerInvariant();
+        if (nome.Length > 100 || !Regex.IsMatch(nome, @"\A[a-z][a-z0-9]*(?:-[a-z0-9]+)*\z"))
+        {
+            mensagemErro = "Informe o nome do Pokémon, como pikachu, ditto ou mr-mime.";
+            return;
+        }
+
+        carregando = true;
+        try
+        {
+            using var resposta = await Http.GetAsync($"pokemon/{Uri.EscapeDataString(nome)}", cancelamento.Token);
+            if (resposta.StatusCode == HttpStatusCode.NotFound)
+            {
+                mensagemErro = "Pokémon não encontrado. Confira o nome e tente novamente.";
+                return;
+            }
+            if (!resposta.IsSuccessStatusCode)
+            {
+                mensagemErro = "A PokéAPI está indisponível no momento. Tente novamente mais tarde.";
+                return;
+            }
+
+            var resultado = await resposta.Content.ReadFromJsonAsync<Pokemon>(cancellationToken: cancelamento.Token);
+            if (resultado is null || resultado.Id <= 0 || string.IsNullOrWhiteSpace(resultado.Nome))
+            {
+                mensagemErro = "A API retornou dados incompletos. Tente novamente.";
+                return;
+            }
+
+            pokemon = resultado;
+            // A atividade exige exclusivamente sprites.other["official-artwork"].front_default.
+            var imagem = resultado.Sprites?.Outras?.ArteOficial?.Frente;
+            if (Uri.TryCreate(imagem, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
+            {
+                urlImagem = imagem;
+            }
+        }
+        catch (OperationCanceledException) when (cancelamento.IsCancellationRequested)
+        {
+            // O componente foi encerrado e sua consulta pendente foi cancelada.
+        }
+        catch (OperationCanceledException)
+        {
+            mensagemErro = "A consulta demorou demais. Tente novamente em alguns instantes.";
+        }
+        catch (HttpRequestException)
+        {
+            mensagemErro = "Não foi possível acessar a PokéAPI. Verifique sua conexão e tente novamente.";
+        }
+        catch (JsonException)
+        {
+            mensagemErro = "A API retornou uma resposta em formato inválido. Tente novamente.";
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    // A API usa decímetros e hectogramas; dividir por 10 converte para metros e quilogramas.
+    private static string Medida(int? valor, string unidade) =>
+        valor is null or < 0
+            ? "Não informado pela API"
+            : $"{(valor.Value / 10m).ToString("0.#", FormatoMedidas)} {unidade}";
+
+    public void Dispose()
+    {
+        cancelamento.Cancel();
+        cancelamento.Dispose();
+    }
+}
